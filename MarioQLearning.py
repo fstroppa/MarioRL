@@ -1,4 +1,5 @@
 import time
+from copy import copy
 
 import numpy as np
 import retro
@@ -20,9 +21,7 @@ def create_env():
 env, done, info = create_env()
 
 
-
-
-q_table = np.random.random(size=(400 * 120, 2))
+q_table = np.random.randint(2, size=4000)
 episode_rewards = []
 
 
@@ -37,7 +36,7 @@ class Episode:
         self.episode_reward = 0
         self.done = False
         self.last_x = []
-        self.last_key = []
+        self.actions_taken = []
 
     def show_episode(self, episode_number):
         if episode_number % SHOW_EVERY == 0:
@@ -50,63 +49,47 @@ class Episode:
 
     def get_action(self):
         if self.frame < self.safe_frame:
-            return np.argmax(q_table[self.frame])
+            return q_table[self.frame]
         if np.random.random() > epsilon or self.show:
-            action = np.argmax(q_table[self.frame])
+            action = q_table[self.frame]
         else:
-            action = np.random.randint(0, 1)
+                action = np.random.randint(2)
         return action
 
     def run(self):
-        key = self.frame
+
         action = self.get_action()
 
         _, _, self.done, self.info = env.step([restricted_actions_list[action]])
 
         if self.show:
             episode.env.render()
-        rew = self.info['x'] - 0.5
 
-        self.last_key.append((key, action))
+
+        self.actions_taken.append(action)
         self.last_x.append(self.info['x'])
-        if self.last_x[-1] == min(self.last_x[-10:]) and self.frame > 30:
+        if self.last_x[-1] == min(self.last_x[-30:]) and self.frame > 30:
             rew = -100
             self.done = True
 
-            for tuple_key_action in self.last_key[:-80]:
-                if self.safe_frame < tuple_key_action[0]:
-                    q_table[tuple_key_action[0]][tuple_key_action[1]] = 1000000
-                    self.safe_frame = tuple_key_action[0]
+            for idx, action_take in enumerate(self.actions_taken):
+                if idx > self.safe_frame - SAFE_FRAMES:
+                    q_table[idx] = action_take
+            self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
 
 
 
             i = 1
-            # for tuple_key_action in self.last_key[-20:]:
-            #     key = tuple_key_action[0]
-            #     action = tuple_key_action[1]
-            #     if self.safe_frame < key:
-            #         new_q = (1 - LEARNING_RATE) * q_table[key][action] + LEARNING_RATE * (rew) * i
-            #         q_table[key][action] += new_q
-            #         i *= 0.9
         self.frame += 1
 
 
-        # max_future_q = np.max(q_table[new_key])
-        # current_q = q_table[key][action]
 
-        # if info['win'] > 0:
-        #     new_q = 100000
-        #     self.done = True
-        # else:
-        #     new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (rew + DISCOUNT * max_future_q)
-
-        # q_table[key][action] = new_q
 
         self.episode_reward = self.info['x']
 
 
-
-
+# env2 = copy(env)
+# assert False
 safe_frame = 0
 for episode_number in range(HM_EPISODES):
 
@@ -116,6 +99,10 @@ for episode_number in range(HM_EPISODES):
         episode.run()
     safe_frame = episode.safe_frame
     print(safe_frame)
+    if episode_number % 100 == 0:
+        q_table[safe_frame:] = np.random.random()
+        epsilon = 0.9
 
     episode_rewards.append(episode.episode_reward)
     epsilon *= EPS_DECAY
+
