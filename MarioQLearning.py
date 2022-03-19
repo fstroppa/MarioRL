@@ -14,7 +14,7 @@ random.seed(50)
 restricted_actions_list = np.array(list(restricted_actions_dict.values()))
 
 def create_env():
-    env = retro.make(game='SuperMarioWorld-Snes', state='DonutPlains1.state')
+    env = retro.make(game='SuperMarioWorld-Snes', state='YoshiIsland2.state')
     env.reset()
     _, _, done, info = env.step([np.random.choice(restricted_actions_list)])
     return env, done, info
@@ -39,6 +39,7 @@ class Episode:
         self.done = False
         self.last_x = []
         self.actions_taken = []
+        self.win = False
 
     def show_episode(self, episode_number):
         return episode_number % SHOW_EVERY == 0
@@ -59,6 +60,10 @@ class Episode:
         for i in range(NUMBER_OF_FRAMES_PER_ACTION):
             _, _, self.done, self.info = env.step([restricted_actions_list[action]])
 
+        if self.info['win'] > 0:
+            self.done = True
+            self.win = True
+
 
         if self.show:
             episode.env.render()
@@ -72,10 +77,15 @@ class Episode:
 
     def _save_results_of_the_run(self):
         self.done = True
-        for idx, action_take in enumerate(self.actions_taken):
-            if idx > self.safe_frame - SAFE_FRAMES:
+        if self.win:
+            for idx, action_take in enumerate(self.actions_taken):
                 actions_array[idx] = action_take
-        self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
+        else:
+            for idx, action_take in enumerate(self.actions_taken):
+                if idx > self.safe_frame - SAFE_FRAMES:
+                    actions_array[idx] = action_take
+            if len(self.actions_taken) - SAFE_FRAMES > self.safe_frame:
+                self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
 
     def dead_or_stuck(self):
         return self.last_x[-1] == min(self.last_x[-DEAD_OR_STUCK:]) and self.frame > 30
@@ -91,10 +101,22 @@ for episode_number in range(HM_EPISODES):
     while not episode.done:
         episode.run()
     safe_frame = episode.safe_frame
-    print(f'Run number {episode_number}: {safe_frame * NUMBER_OF_FRAMES_PER_ACTION} frames advanced.')
-    if episode_number % 100 == 0:
+    print(f'Run number {episode_number}: {safe_frame * NUMBER_OF_FRAMES_PER_ACTION} safe frames advanced.')
+    if episode_number % 20 == 0:
         actions_array[safe_frame:] = np.random.random()
         epsilon = 0.9
 
     epsilon *= EPS_DECAY
+    if episode.win:
+        actions_array = episode.actions_taken
+        break
 
+env.reset()
+for action in actions_array:
+    for i in range(NUMBER_OF_FRAMES_PER_ACTION):
+        _, _, done, info = env.step([restricted_actions_list[action]])
+    env.render()
+    time.sleep(0.015)
+    if done:
+        time.sleep(2)
+        break
