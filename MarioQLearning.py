@@ -23,7 +23,7 @@ def create_env():
 env, done, info = create_env()
 
 
-q_table = np.random.randint(2, size=4000)
+actions_array = np.random.randint(2, size=4000)
 episode_rewards = []
 
 
@@ -45,9 +45,9 @@ class Episode:
 
     def get_action(self):
         if self.frame < self.safe_frame:
-            return q_table[self.frame]
+            return actions_array[self.frame]
         if np.random.random() > epsilon or self.show:
-            action = q_table[self.frame]
+            action = actions_array[self.frame]
         else:
             action = np.random.randint(2)
         return action
@@ -56,25 +56,29 @@ class Episode:
 
         action = self.get_action()
 
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
+        for i in range(NUMBER_OF_FRAMES_PER_ACTION):
+            _, _, self.done, self.info = env.step([restricted_actions_list[action]])
+
 
         if self.show:
             episode.env.render()
 
-
         self.actions_taken.append(action)
         self.frame += 1
         self.last_x.append(self.info['x'])
-        if self.last_x[-1] == min(self.last_x[-10:]) and self.frame > 30:
-            self.done = True
 
-            for idx, action_take in enumerate(self.actions_taken):
-                if idx > self.safe_frame - SAFE_FRAMES:
-                    q_table[idx] = action_take
-            self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
+        if self.dead_or_stuck():
+            self._save_results_of_the_run()
+
+    def _save_results_of_the_run(self):
+        self.done = True
+        for idx, action_take in enumerate(self.actions_taken):
+            if idx > self.safe_frame - SAFE_FRAMES:
+                actions_array[idx] = action_take
+        self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
+
+    def dead_or_stuck(self):
+        return self.last_x[-1] == min(self.last_x[-10:]) and self.frame > 30
 
 
 # env2 = copy(env)
@@ -87,9 +91,9 @@ for episode_number in range(HM_EPISODES):
     while not episode.done:
         episode.run()
     safe_frame = episode.safe_frame
-    print(safe_frame)
+    print(f'Run number {episode_number}: {safe_frame * NUMBER_OF_FRAMES_PER_ACTION} frames advanced.')
     if episode_number % 100 == 0:
-        q_table[safe_frame:] = np.random.random()
+        actions_array[safe_frame:] = np.random.random()
         epsilon = 0.9
 
     epsilon *= EPS_DECAY
