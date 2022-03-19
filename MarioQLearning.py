@@ -1,3 +1,4 @@
+import random
 import time
 from copy import copy
 
@@ -8,6 +9,7 @@ from baselines.common.retro_wrappers import wrap_deepmind_retro
 
 from config import *
 
+random.seed(50)
 
 restricted_actions_list = np.array(list(restricted_actions_dict.values()))
 
@@ -39,13 +41,7 @@ class Episode:
         self.actions_taken = []
 
     def show_episode(self, episode_number):
-        if episode_number % SHOW_EVERY == 0:
-            print(f"on #{episode_number}, epsilon is {epsilon}")
-            print(f"{SHOW_EVERY} ep mean: {np.mean(episode_rewards[-SHOW_EVERY:])}")
-            show = True
-        else:
-            show = False
-        return show
+        return episode_number % SHOW_EVERY == 0
 
     def get_action(self):
         if self.frame < self.safe_frame:
@@ -53,7 +49,7 @@ class Episode:
         if np.random.random() > epsilon or self.show:
             action = q_table[self.frame]
         else:
-                action = np.random.randint(2)
+            action = np.random.randint(2)
         return action
 
     def run(self):
@@ -61,31 +57,24 @@ class Episode:
         action = self.get_action()
 
         _, _, self.done, self.info = env.step([restricted_actions_list[action]])
+        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
+        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
+        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
 
         if self.show:
             episode.env.render()
 
 
         self.actions_taken.append(action)
+        self.frame += 1
         self.last_x.append(self.info['x'])
-        if self.last_x[-1] == min(self.last_x[-30:]) and self.frame > 30:
-            rew = -100
+        if self.last_x[-1] == min(self.last_x[-10:]) and self.frame > 30:
             self.done = True
 
             for idx, action_take in enumerate(self.actions_taken):
                 if idx > self.safe_frame - SAFE_FRAMES:
                     q_table[idx] = action_take
             self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
-
-
-
-            i = 1
-        self.frame += 1
-
-
-
-
-        self.episode_reward = self.info['x']
 
 
 # env2 = copy(env)
@@ -103,6 +92,5 @@ for episode_number in range(HM_EPISODES):
         q_table[safe_frame:] = np.random.random()
         epsilon = 0.9
 
-    episode_rewards.append(episode.episode_reward)
     epsilon *= EPS_DECAY
 
