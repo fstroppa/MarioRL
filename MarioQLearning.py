@@ -1,6 +1,9 @@
+import time
+
 import numpy as np
 import retro
 import tensorflow as tf
+from baselines.common.retro_wrappers import wrap_deepmind_retro
 
 from config import *
 
@@ -24,8 +27,9 @@ episode_rewards = []
 
 
 class Episode:
-    def __init__(self, env, episode_number):
+    def __init__(self, env, episode_number, safe_frame):
         self.env = env
+        self.safe_frame = safe_frame
         self.show = self.show_episode(episode_number)
         self.env.reset()
         _, _, self.done, self.info = env.step([restricted_actions_list[0]])
@@ -45,6 +49,8 @@ class Episode:
         return show
 
     def get_action(self):
+        if self.frame < self.safe_frame:
+            return np.argmax(q_table[self.frame])
         if np.random.random() > epsilon or self.show:
             action = np.argmax(q_table[self.frame])
         else:
@@ -55,10 +61,6 @@ class Episode:
         key = self.frame
         action = self.get_action()
 
-
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
-        _, _, self.done, self.info = env.step([restricted_actions_list[action]])
         _, _, self.done, self.info = env.step([restricted_actions_list[action]])
 
         if self.show:
@@ -68,40 +70,52 @@ class Episode:
         self.last_key.append((key, action))
         self.last_x.append(self.info['x'])
         if self.last_x[-1] == min(self.last_x[-10:]) and self.frame > 30:
-            rew = -20000
+            rew = -100
             self.done = True
 
-            for tuple_key_action in self.last_key[:-30]:
-                q_table[tuple_key_action[0]][tuple_key_action[1]] += 10
+            for tuple_key_action in self.last_key[:-80]:
+                if self.safe_frame < tuple_key_action[0]:
+                    q_table[tuple_key_action[0]][tuple_key_action[1]] = 1000000
+                    self.safe_frame = tuple_key_action[0]
 
-            # i = 1
-            # for tuple_key_action in self.last_key[-10:]:
-            #     q_table[tuple_key_action[0]][tuple_key_action[1]] -= rew * i
-            #     i *= 0.9
+
+
+            i = 1
+            # for tuple_key_action in self.last_key[-20:]:
+            #     key = tuple_key_action[0]
+            #     action = tuple_key_action[1]
+            #     if self.safe_frame < key:
+            #         new_q = (1 - LEARNING_RATE) * q_table[key][action] + LEARNING_RATE * (rew) * i
+            #         q_table[key][action] += new_q
+            #         i *= 0.9
         self.frame += 1
 
-        new_key = self.frame
-        max_future_q = np.max(q_table[new_key])
-        current_q = q_table[key][action]
 
-        if info['win'] > 0:
-            new_q = 100000
-            self.done = True
-        else:
-            new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (rew + DISCOUNT * max_future_q)
+        # max_future_q = np.max(q_table[new_key])
+        # current_q = q_table[key][action]
 
-        q_table[key][action] = new_q
+        # if info['win'] > 0:
+        #     new_q = 100000
+        #     self.done = True
+        # else:
+        #     new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (rew + DISCOUNT * max_future_q)
 
-        self.episode_reward += rew
+        # q_table[key][action] = new_q
 
-
+        self.episode_reward = self.info['x']
 
 
+
+
+safe_frame = 0
 for episode_number in range(HM_EPISODES):
-    episode = Episode(env, episode_number)
+
+    episode = Episode(env, episode_number, safe_frame)
 
     while not episode.done:
         episode.run()
+    safe_frame = episode.safe_frame
+    print(safe_frame)
 
     episode_rewards.append(episode.episode_reward)
     epsilon *= EPS_DECAY
