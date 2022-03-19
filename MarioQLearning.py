@@ -78,7 +78,7 @@ class Episode:
         self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
 
     def dead_or_stuck(self):
-        return self.last_x[-1] == min(self.last_x[-10:]) and self.frame > 30
+        return self.last_x[-1] == min(self.last_x[-DEAD_OR_STUCK:]) and self.frame > 30
 
 
 # env2 = copy(env)
