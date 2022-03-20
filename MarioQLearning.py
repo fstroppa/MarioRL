@@ -124,33 +124,6 @@ for episode_number in range(HM_EPISODES):
 #         time.sleep(2)
 #         break
 
-new_actions = actions_array.copy()
-for idx, action in enumerate(new_actions):
-    print(idx, action)
-    if action == 1:
-        new_actions[idx] = 0
-
-        env.reset()
-        _, _, done, info = env.step([restricted_actions_list[0]])
-        last_x = []
-        frame = 0
-        for idx2, action2 in enumerate(new_actions):
-            for i in range(NUMBER_OF_FRAMES_PER_ACTION):
-                _, _, done, info = env.step([restricted_actions_list[new_actions[idx2]]])
-            last_x.append(info['x'])
-            frame += 1
-
-            if info['win'] > 0:
-                new_actions[idx] = 0
-                print('win')
-                break
-            if last_x[-1] == min(last_x[-DEAD_OR_STUCK:]) and frame > 30:
-                new_actions[idx] = 1
-                print('lose')
-                break
-            if idx2 == len(new_actions) - 1:
-                new_actions[idx] = 1
-                print('lose')
 
 with open('actions_array_donut_plains_1_4.pkl', 'wb') as output:
     pickle.dump(new_actions, output, 1)
