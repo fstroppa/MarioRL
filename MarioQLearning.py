@@ -19,48 +19,54 @@ def create_env():
 class Episode:
     def __init__(self, env, episode_number, safe_frame):
         self.env = env
+        self._start_environment()
         self.safe_frame = safe_frame
         self.episode_number = episode_number
+
+    def _start_environment(self):
         self.env.reset()
-        _, _, self.done, self.info = env.step([restricted_actions_list[0]])
+        _, _, self.done, self.info = self.env.step([restricted_actions_list[0]])
         self.frame = 0
-        self.episode_reward = 0
         self.done = False
-        self.last_x = []
+        self.last_x_positions = []
         self.actions_taken = []
         self.win = False
 
     def show_episode(self):
         return self.episode_number % SHOW_EVERY == 0
 
+    def _frame_decision_is_safe(self):
+        return self.frame < self.safe_frame
+
     def get_action(self):
-        if self.frame < self.safe_frame:
+        if self._frame_decision_is_safe():
             return actions_array[self.frame]
-        if np.random.random() > epsilon:
-            action = actions_array[self.frame]
         else:
-            action = np.random.randint(2)
-        return action
+            if np.random.random() > epsilon:
+                return actions_array[self.frame]
+            return np.random.randint(NUMBER_OF_POSSIBLE_ACTIONS)
 
     def run(self):
         action = self.get_action()
-
-        for i in range(NUMBER_OF_FRAMES_PER_ACTION):
-            _, _, self.done, self.info = env.step([restricted_actions_list[action]])
+        self._take_actions(action)
+        self.actions_taken.append(action)
+        self.frame += 1
+        self.last_x_positions.append(self.info['x'])
 
         if self.info['win'] > 0:
             self.done = True
             self.win = True
 
         if self.show_episode():
-            episode.env.render()
-
-        self.actions_taken.append(action)
-        self.frame += 1
-        self.last_x.append(self.info['x'])
+            self.env.render()
 
         if self.dead_or_stuck():
             self._save_results_of_the_run()
+
+    def _take_actions(self, action):
+        for _ in range(NUMBER_OF_FRAMES_PER_ACTION):
+            _, _, self.done, self.info = self.env.step(
+                [restricted_actions_list[action]])
 
     def _save_results_of_the_run(self):
         self.done = True
@@ -75,13 +81,14 @@ class Episode:
                 self.safe_frame = len(self.actions_taken) - SAFE_FRAMES
 
     def dead_or_stuck(self):
-        return self.last_x[-1] == min(self.last_x[-DEAD_OR_STUCK:]) and self.frame > 30
+        return self.last_x_positions[-1] == min(self.last_x_positions[-DEAD_OR_STUCK:]) and self.frame > 30
 
 
 if __name__ == '__main__':
     restricted_actions_list = np.array(list(restricted_actions_dict.values()))
     env, done, info = create_env()
-    actions_array = np.random.randint(2, size=4000)
+    actions_array = np.random.randint(NUMBER_OF_POSSIBLE_ACTIONS,
+                                      size=NUMBER_OF_POSSIBLE_FRAMES)
 
     safe_frame = 0
     epsilon = EPSILON
