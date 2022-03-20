@@ -1,3 +1,3 @@
 # MarioRL
 
-Simple algorithm that makes Mario beats some levels
+Simple algorithm that makes Mario beat some levels
