@@ -1,6 +1,6 @@
 # MarioRL
 
-A simple algorithm that makes Mario beat some levels. Some of my thoughts during the project:
+A simple algorithm that makes Mario beat some levels. It reads the state of the game and provide the winnible output. Some of my thoughts during the project:
 
 **1 - Why use a simple algorithm instead of the overall Deep RL or meta-heuristics?**
   It is not needed. I intended to make Mario beat some levels with the minimum information possible. The only input is the time and if Mario dies, wins or gets stuck.
