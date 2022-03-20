@@ -158,36 +158,3 @@ with open('actions_array_donut_plains_1_4.pkl', 'wb') as output:
 with open("actions_array_donut_plains_1_4.pkl",'rb') as file:
     object_file = pickle.load(file)
 
-# save as GIF
-from matplotlib import animation
-import matplotlib.pyplot as plt
-
-
-
-def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
-
-    #Mess with this to change frame size
-    plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
-
-    patch = plt.imshow(frames[0])
-    plt.axis('off')
-
-    def animate(i):
-        patch.set_data(frames[i])
-
-    anim = animation.FuncAnimation(plt.gcf(), animate, frames = len(frames), interval=50)
-    anim.save(path + filename, writer='imagemagick', fps=60)
-
-#Make gym env
-
-observation = env.reset()
-frames = []
-for t in range(1000):
-    #Render to frames buffer
-    frames.append(env.render(mode="rgb_array"))
-    action = env.action_space.sample()
-    _, _, done, _ = env.step(action)
-    if done:
-        break
-
-save_frames_as_gif(frames)
