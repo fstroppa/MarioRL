@@ -1,3 +1,4 @@
+import pickle
 import random
 import time
 from copy import copy
@@ -9,12 +10,12 @@ from baselines.common.retro_wrappers import wrap_deepmind_retro
 
 from config import *
 
-random.seed(50)
+random.seed(42)
 
 restricted_actions_list = np.array(list(restricted_actions_dict.values()))
 
 def create_env():
-    env = retro.make(game='SuperMarioWorld-Snes', state='YoshiIsland2.state')
+    env = retro.make(game='SuperMarioWorld-Snes', state='DonutPlains1.state')
     env.reset()
     _, _, done, info = env.step([np.random.choice(restricted_actions_list)])
     return env, done, info
@@ -65,8 +66,8 @@ class Episode:
             self.win = True
 
 
-        if self.show:
-            episode.env.render()
+        # if self.show:
+        #     episode.env.render()
 
         self.actions_taken.append(action)
         self.frame += 1
@@ -111,12 +112,82 @@ for episode_number in range(HM_EPISODES):
         actions_array = episode.actions_taken
         break
 
-env.reset()
-for action in actions_array:
-    for i in range(NUMBER_OF_FRAMES_PER_ACTION):
-        _, _, done, info = env.step([restricted_actions_list[action]])
-    env.render()
-    time.sleep(0.015)
+# assert False
+# env.reset()
+# _, _, done, info = env.step([restricted_actions_list[0]])
+# for action in actions_array:
+#     for i in range(NUMBER_OF_FRAMES_PER_ACTION):
+#         _, _, done, info = env.step([restricted_actions_list[action]])
+#     env.render()
+#     time.sleep(0.015)
+#     if done:
+#         time.sleep(2)
+#         break
+
+new_actions = actions_array.copy()
+for idx, action in enumerate(new_actions):
+    print(idx, action)
+    if action == 1:
+        new_actions[idx] = 0
+
+        env.reset()
+        _, _, done, info = env.step([restricted_actions_list[0]])
+        last_x = []
+        frame = 0
+        for idx2, action2 in enumerate(new_actions):
+            for i in range(NUMBER_OF_FRAMES_PER_ACTION):
+                _, _, done, info = env.step([restricted_actions_list[new_actions[idx2]]])
+            last_x.append(info['x'])
+            frame += 1
+
+            if info['win'] > 0:
+                new_actions[idx] = 0
+                print('win')
+                break
+            if last_x[-1] == min(last_x[-DEAD_OR_STUCK:]) and frame > 30:
+                new_actions[idx] = 1
+                print('lose')
+                break
+            if idx2 == len(new_actions) - 1:
+                new_actions[idx] = 1
+                print('lose')
+
+with open('actions_array_donut_plains_1_4.pkl', 'wb') as output:
+    pickle.dump(new_actions, output, 1)
+
+with open("actions_array_donut_plains_1_4.pkl",'rb') as file:
+    object_file = pickle.load(file)
+
+# save as GIF
+from matplotlib import animation
+import matplotlib.pyplot as plt
+
+
+
+def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
+
+    #Mess with this to change frame size
+    plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
+
+    patch = plt.imshow(frames[0])
+    plt.axis('off')
+
+    def animate(i):
+        patch.set_data(frames[i])
+
+    anim = animation.FuncAnimation(plt.gcf(), animate, frames = len(frames), interval=50)
+    anim.save(path + filename, writer='imagemagick', fps=60)
+
+#Make gym env
+
+observation = env.reset()
+frames = []
+for t in range(1000):
+    #Render to frames buffer
+    frames.append(env.render(mode="rgb_array"))
+    action = env.action_space.sample()
+    _, _, done, _ = env.step(action)
     if done:
-        time.sleep(2)
         break
+
+save_frames_as_gif(frames)
